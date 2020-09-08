@@ -62,6 +62,55 @@ ggplot(l3Boston, aes(x = factor(value), y = medv)) +
 - `chas` seems like a good and well-behaved predictor
 - For values fo `rad` that are smaller than 8 the relationship seems flat or perhaps increasing with rad. However, for 24 it is clearly lower than for value smaller than 8. It appears that the nature of the relationship changes somewhere between 8 and 24 and we have no information about that. We might want to add a `rad^2` term.
 
+Checking for correlations in the predictors:
+```{r}
+cBoston <- data.frame(round(cor(Boston), 2))
+cBoston <- cBoston[row.names(cBoston) != 'medv', names(cBoston) != 'medv']
+cBoston$metric1 <- row.names(cBoston)
+cBoston <- cBoston %>% pivot_longer(crim:lstat)
+
+cBoston <- cBoston %>% 
+  filter(metric1 > name) %>%
+  arrange(-abs(value))
+cBoston$cor_rank <- 1:nrow(cBoston)
+
+hist(cBoston$value)
+
+#ggplot(cBoston, aes(x = metric1, y = name, fill = value)) +
+#  geom_tile() +
+#  scale_fill_gradient(low = 'blue', high = 'red')
+```
+There is strong correlation between predictors. This will cause collinearity problems.
+
+Top 9 correlations between predictors:
+```{r}
+all_dat <- NULL
+cBoston
+par(mfrow=c(3,3))
+i <- 1
+for (i in 1:9){
+  var1 <- cBoston$metric1[i]
+  var2 <- cBoston$name[i]
+  corr <- cBoston$value[i]
+  all_dat <- rbind(all_dat, 
+  data.frame(v1 = Boston[, var1], v2 = Boston[, var2], 
+             corr = corr, 
+             lab = paste0('V1: ', var1, ' & V2: ', var2),
+             stringsAsFactors = FALSE))
+}
+print(all_dat)
+ggplot(all_dat, aes(x = v1, y = v2))+
+  facet_wrap(. ~ lab, scale = 'free') + 
+  geom_point()
+```
+
+
+
+
+
+
+
+
 
 Basic fitting and dropping predictors with high p-values manually
 ```{r}
