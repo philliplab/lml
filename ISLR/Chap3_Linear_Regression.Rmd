@@ -1,0 +1,65 @@
+# ISLR 3 - Linear Regression
+
+## Lab
+
+### Simple Linear Regression
+
+```{r}
+library(MASS)
+summary(Boston)
+```
+
+Basic fitting and dropping predictors with high p-values manually
+```{r}
+mod <- lm(medv ~ lstat + crim + zn + indus + chas + nox + rm + age + dis + rad + tax + ptratio + black, data = Boston)
+summary(mod)
+mod1 <- update(mod, . ~ . - indus)
+summary(mod1)
+mod2 <- update(mod1, . ~ . - age)
+summary(mod2)
+names(mod2$coefficients)
+```
+
+Let's track how the coefficients change as variables are dropped. We start with the initial full model on the full dataset as baseline and then report the ratios relative to that.
+```{r}
+coef_names <- names(mod2$coefficients)
+ct <-  # ct is short for coefficient tracker
+data.frame(
+  name = c(coef_names, 'adjR2', 'Fstat') ,
+  m00 = round(c(mod$coefficients[coef_names],
+                summary(mod)$adj.r.squared,
+                summary(mod)$fstatistic[1]),
+              3)
+)
+
+get_mod_stats <- function(mod_var){
+  mod_coef <- mod_var$coefficients[coef_names]
+  mod_coef_norm <- mod_coef / ct$m00[ct$name %in% coef_names]
+  round(c(mod_coef_norm,
+          summary(mod_var)$adj.r.squared,
+          summary(mod_var)$fstatistic[1]),
+        3)
+}
+
+ct$m01 <- get_mod_stats(mod1) 
+ct$m02 <- get_mod_stats(mod2)
+
+row.names(ct) <- NULL
+print(ct)
+```
+
+```{r}
+print(summary(mod2))
+```
+
+```{r}
+knitr::kable(ct)
+```
+
+
+
+
+
+## Exercises
+
+### Applied
