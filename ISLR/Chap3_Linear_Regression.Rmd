@@ -86,7 +86,6 @@ Top 9 correlations between predictors:
 ```{r}
 all_dat <- NULL
 cBoston
-par(mfrow=c(3,3))
 i <- 1
 for (i in 1:9){
   var1 <- cBoston$metric1[i]
@@ -125,6 +124,58 @@ knitr::kable(simple_mods[order(simple_mods$r2),])
 Two predictors are clearly much better than the others:
 - lstat
 - rm
+
+lstat
+```{r}
+mod <- lm(medv ~ lstat, dat = Boston)
+plot(medv ~ lstat, dat = Boston)
+abline(mod)
+par(mfrow=c(2,2))
+plot(mod)
+par(mfrow=c(1,1))
+```
+
+Non-linear relationship - try 1/x transformation:
+
+```{r}
+mod <- lm(1/medv ~ lstat, dat = Boston)
+plot(1/medv ~ lstat, dat = Boston)
+abline(mod)
+par(mfrow=c(2,2))
+plot(mod)
+par(mfrow=c(1,1))
+```
+Much better, but now the error terms clearly depend on the value of the predictor. Might want to try a Bayesian model so that we can account for the increasing error?
+
+rm
+```{r}
+mod <- lm(medv ~ rm, dat = Boston)
+plot(medv ~ rm, dat = Boston)
+abline(mod)
+print(summary(mod))
+par(mfrow=c(2,2))
+plot(mod)
+par(mfrow=c(1,1))
+```
+
+Looks decent, but a couple of clear outliers.
+```{r}
+rmOutliers <- Boston[!abs(mod$residuals)>18,]
+mod <- lm(medv ~ rm, dat = rmOutliers)
+plot(medv ~ rm, dat = rmOutliers)
+abline(mod)
+print(summary(mod))
+par(mfrow=c(2,2))
+plot(mod)
+par(mfrow=c(1,1))
+```
+
+Removing just those couple of outlier has a large effect, should check with an expert if they might represent special cases.
+
+
+
+
+
 
 Basic fitting and dropping predictors with high p-values manually
 ```{r}
