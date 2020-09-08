@@ -104,13 +104,27 @@ ggplot(all_dat, aes(x = v1, y = v2))+
   geom_point()
 ```
 
+Note that nox, indus, tax and dis seems to all be correlated strongly with each other - we will probably want to drop some of these variables, or combine them into one predictor.
 
+Fit simple models and investigate the best ones:
+```{r}
+simple_mods <- NULL
+for (pred_name in names(Boston)[-ncol(Boston)]){
+  mod <- lm(paste0('medv ~ ', pred_name), dat = Boston)
+  print(summary(mod))
+  simple_mods <- rbind(simple_mods,
+    data.frame(pred = pred_name,
+               intercept = round(mod$coefficients[1], 2),
+               slope = round(mod$coefficients[2], 2),
+               r2 = round(summary(mod)$r.squared, 2))
+  )
+}
+knitr::kable(simple_mods[order(simple_mods$r2),])
+```
 
-
-
-
-
-
+Two predictors are clearly much better than the others:
+- lstat
+- rm
 
 Basic fitting and dropping predictors with high p-values manually
 ```{r}
