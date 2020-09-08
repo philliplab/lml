@@ -6,8 +6,62 @@
 
 ```{r}
 library(MASS)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
 summary(Boston)
 ```
+Dimensions:
+```{r}
+dim(Boston)
+```
+There are a decent number of rows for the number of columns, so we can consider building a large model.
+
+Missing Values:
+```{r}
+sum(is.na(Boston))
+```
+There are no missing values. This is suspicious, there are always missing values. Check the data values to check for sentinel values that might indicate missingness.
+
+Histograms:
+```{r}
+lBoston <- Boston %>% pivot_longer(everything())
+ggplot(lBoston, aes(x = value)) +
+  facet_wrap(. ~ name, scales = 'free') +
+  geom_histogram()
+```
+
+- One binary variable: chas.
+- There are a high-leverage points in crom and dis.
+- The response variable looks like two different distributions: a normal centered around 20 and another distribution that peaks sharply at about 50.
+  - We might want to use different models for these two groups.
+- Many of the predictor distributions are very skewed leading to very different leverage for the different observations.
+- The `rad` variable is semi-categorical and has two clearly different distributions. We should be careful about predicting for observations with `rad` values between 10 and 22.
+
+Scatter plots and simple regression for continuous variables:
+```{r}
+l2Boston <- Boston %>% pivot_longer(crim:lstat) %>% filter(name != 'chas')
+ggplot(l2Boston, aes(x = value, y = medv)) +
+  facet_wrap(. ~ name, scales = 'free') +
+  geom_point() +
+  geom_smooth(method='lm')
+```
+
+All the variables seem like good candidate predictors. The relationships between the predictors and the response do not exhibit ideal patterns, but it is not easy to pick transformations that will improve the linearity of the relationships:
+- 1/x for indus and lstat?
+- square root/log for black and dis?
+
+Boxplots for categorical variables:
+```{r}
+l3Boston <- Boston %>% pivot_longer(crim:lstat) %>% filter(name %in% c('chas', 'rad'))
+ggplot(l3Boston, aes(x = factor(value), y = medv)) +
+  facet_wrap(. ~ name, scales = 'free') +
+  geom_boxplot()
+```
+
+- `chas` seems like a good and well-behaved predictor
+- For values fo `rad` that are smaller than 8 the relationship seems flat or perhaps increasing with rad. However, for 24 it is clearly lower than for value smaller than 8. It appears that the nature of the relationship changes somewhere between 8 and 24 and we have no information about that. We might want to add a `rad^2` term.
+
 
 Basic fitting and dropping predictors with high p-values manually
 ```{r}
@@ -48,9 +102,16 @@ row.names(ct) <- NULL
 print(ct)
 ```
 
+Summary of model with only significant predictors.
 ```{r}
 print(summary(mod2))
 ```
+The model fits the data very well and explains a high degree of the variation of the data (adj. R2 = 73%).
+
+```{r}
+confint(mod2)
+```
+
 
 ```{r}
 knitr::kable(ct)
