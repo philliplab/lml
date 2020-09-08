@@ -137,18 +137,18 @@ par(mfrow=c(1,1))
 plot(hatvalues(mod) ~ Boston$medv)
 ```
 
-Non-linear relationship - try 1/x transformation:
+Non-linear relationship - try sqrt(1/x) transformation:
 
 ```{r}
-mod <- lm(1/medv ~ lstat, dat = Boston)
-plot(1/medv ~ lstat, dat = Boston)
+mod <- lm(medv ~ I((1/lstat)^(1/2)), dat = Boston)
+plot(medv ~ I((1/lstat)^(1/2)), dat = Boston)
 abline(mod)
 par(mfrow=c(2,2))
 plot(mod)
 par(mfrow=c(1,1))
-plot(hatvalues(mod) ~ 1/Boston$medv)
+plot(hatvalues(mod) ~ I((1/Boston$lstat)^(1/2)))
 ```
-Much better, but now the error terms clearly depend on the value of the predictor. Might want to try a Bayesian model so that we can account for the increasing error?
+Much better. A few moderately high leverage data points.
 
 rm
 ```{r}
@@ -251,8 +251,103 @@ print(vif(mod3))
 
 The variance inflation factors improved substantially and we should leave tax out of the model.
 
+Do any of the terms interact?
 
+There is a large number of predictors in the model, so evaluating too many interaction terms will cause overfitting. Only consider interaction between the 2 most significant terms for now:
+
+```{r}
+mod4 <- update(mod3, . ~ . + lstat:rm)
+print(summary(mod4))
+```
+
+Interestingly it produces a highly significant term and reduces the importance of the `black` and `zn` terms substansitally. Fit a new model keeping the interaction term, but removing these other two.
+
+```{r}
+mod5 <- update(mod4, . ~ . - black - zn)
+print(summary(mod5))
+```
+
+This improves the R-square value.
+
+```{r}
+print(vif(mod5))
+```
+
+But produces highly collinear terms - revert back to the model with no interaction terms.
+
+Attempt the non-linear transform of the lstat variable discussed earlier:
+
+```{r}
+mod6 <- update(mod3, . ~ . -lstat +  I((1/lstat)^(1/2)))
+summary(mod6)
+```
+
+Decent improvement and the zn variable is now no longer significant:
+
+```{r}
+mod7 <- update(mod6, . ~ . - zn)
+summary(mod7)
+```
+
+How far have we come?
+```{r}
+anova(mod, mod3)
+```
+
+```{r}
+anova(mod, mod7)
+```
+
+Pretty far.
+
+```{r}
+plot(Boston$medv ~ predict(mod7, Boston))
+```
+
+Really good predictions.
 
 ## Exercises
 
 ### Applied
+
+Number 14 - collinearity
+
+```{r}
+set.seed(1)
+x1 = runif(100)
+x2 = 0.5*x1 + rnorm(100)/10
+y = 2 + 2*x1 + 0.3*x2 + rnorm(100)
+```
+
+```{r}
+cor(x1, x2)
+plot(x2~x1)
+```
+
+```{r}
+mod <- lm(y ~ x1 + x2)
+summary(mod)
+vif(mod)
+```
+
+```{r}
+mod1 <- lm(y ~ x1)
+summary(mod1)
+```
+
+```{r}
+anova(mod, mod1)
+```
+
+```{r}
+mod2 <- lm(y ~ x2)
+summary(mod2)
+```
+
+```{r}
+anova(mod, mod2)
+```
+
+
+
+
