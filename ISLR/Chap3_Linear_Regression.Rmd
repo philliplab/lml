@@ -9,6 +9,7 @@ library(MASS)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(car)
 summary(Boston)
 ```
 Dimensions:
@@ -133,6 +134,7 @@ abline(mod)
 par(mfrow=c(2,2))
 plot(mod)
 par(mfrow=c(1,1))
+plot(hatvalues(mod) ~ Boston$medv)
 ```
 
 Non-linear relationship - try 1/x transformation:
@@ -144,6 +146,7 @@ abline(mod)
 par(mfrow=c(2,2))
 plot(mod)
 par(mfrow=c(1,1))
+plot(hatvalues(mod) ~ 1/Boston$medv)
 ```
 Much better, but now the error terms clearly depend on the value of the predictor. Might want to try a Bayesian model so that we can account for the increasing error?
 
@@ -156,6 +159,7 @@ print(summary(mod))
 par(mfrow=c(2,2))
 plot(mod)
 par(mfrow=c(1,1))
+plot(hatvalues(mod) ~ Boston$rm)
 ```
 
 Looks decent, but a couple of clear outliers.
@@ -172,20 +176,11 @@ par(mfrow=c(1,1))
 
 Removing just those couple of outlier has a large effect, should check with an expert if they might represent special cases.
 
-
-
-
-
-
 Basic fitting and dropping predictors with high p-values manually
 ```{r}
 mod <- lm(medv ~ lstat + crim + zn + indus + chas + nox + rm + age + dis + rad + tax + ptratio + black, data = Boston)
-summary(mod)
 mod1 <- update(mod, . ~ . - indus)
-summary(mod1)
 mod2 <- update(mod1, . ~ . - age)
-summary(mod2)
-names(mod2$coefficients)
 ```
 
 Let's track how the coefficients change as variables are dropped. We start with the initial full model on the full dataset as baseline and then report the ratios relative to that.
@@ -213,7 +208,6 @@ ct$m01 <- get_mod_stats(mod1)
 ct$m02 <- get_mod_stats(mod2)
 
 row.names(ct) <- NULL
-print(ct)
 ```
 
 Summary of model with only significant predictors.
@@ -226,12 +220,36 @@ The model fits the data very well and explains a high degree of the variation of
 confint(mod2)
 ```
 
-
 ```{r}
 knitr::kable(ct)
 ```
 
+Removing these two predictors improve the adjusted R2 value. It has some minor effects on the other parameters, so it would not have been too bad to leave them in.
 
+Earlier it iwas shown that there is a fair amount of correlation between the predictors. To see the effect of this on the model, compute the variance inflation factors.
+
+```{r}
+print(vif(mod2))
+```
+
+These values are not too large, but `rad` and `tax` are higher than the rest. Furthermore, the basic correlation analysis also showed that tax is strongly correlated with other variables, so investigate the effect of removing it:
+
+(We should be careful since one of the variables is is strongly correlated with was already removed: indus)
+
+```{r}
+mod3 <- update(mod2, . ~ . - tax)
+summary(mod3)
+ct$m03 <- get_mod_stats(mod3)
+knitr::kable(ct)
+```
+
+Dropping tax had a small effect on the R2 (slight decrease) and a large effect on a number of variables, namely: `rad` and `zn`.
+
+```{r}
+print(vif(mod3))
+```
+
+The variance inflation factors improved substantially and we should leave tax out of the model.
 
 
 
