@@ -1,0 +1,2 @@
+Name,source,Sub-source,Rows,Cols,Bin,Cat,Cont,Short Comment,Used In,Long Comment
+Boston,R,MASS,506,14,1,1,12,Housing values in Suburbs of Boston,ISLR Chap 3;,Contains all kinds of predictors from crime to pollution
