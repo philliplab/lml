@@ -1,0 +1,94 @@
+```{r setup}
+data_dir <- '../../data'
+```
+
+# Spurious results in linear regression
+
+The goal is to explore the spurious results that arise when multiple linear regressions is performed on a dataset of completely independent normally distributed variables:
+
+1) There is a 5% chance that the overall model will be considered significant.
+2) The number of individual predictors that will be erroneously deemed significant is binomially distributed with success probability 5% and size equal to the number of predictors.
+
+## The data
+
+```{r}
+n_repl <- 1000
+n_obs <- 1000
+n_var <- 100
+```
+
+Simulate `r n_obs` observations of `r n_var` idependent normally distributed predictors and an independent normally distributed response variable.
+
+Fit a linear model with no interaction terms to these data and record:
+
+1) The p-value of the F-test for the overall fit of the model.
+2) Number of significant predictors based on their T-statistics.
+
+Repeat this process `r n_repl` times to produce `r n_repl` replicates.
+
+```{r main_data}
+test_num <- 2
+main_file_name <- paste0('main_dataset_spurious_matches_', test_num, '.csv')
+
+if (file.exists(paste0(data_dir, '/', main_file_name))){
+  results <- read.csv(paste0(data_dir, '/', main_file_name), stringsAsFactors = F)
+} else {
+  results <- data.frame(repl = numeric(n_repl),
+    n_signif_preds = numeric(n_repl),
+    overall_p = numeric(n_repl))
+  
+  for (r in 1:n_repl){
+    print(r)
+    dat <- data.frame(matrix(rnorm(n=n_obs*(n_var + 1)), nrow = n_obs))
+    names(dat) <- paste('x', 0:n_var, sep = '')
+    names(dat)[1] <- 'y'
+    
+    mod <- lm(paste('y ~ ', paste(paste('x', 1:n_var, sep = ''), collapse = ' + '), sep = ''), data = dat)
+    
+    n_signif_preds <- sum(summary(mod)$coefficients[, 4] < 0.05)
+    fstat <- summary(mod)$fstatistic[1]
+    df1 <- summary(mod)$fstatistic[2]
+    df2 <- summary(mod)$fstatistic[3]
+    
+    overall_p <- 1-pf(fstat, df1, df2)
+    results[r, ] <- c(r, n_signif_preds, overall_p)
+  }
+  write.csv(results, paste0(data_dir, '/', main_file_name), row.names = F)
+}
+```
+
+## How often is the model deemed to be significant?
+
+```{r}
+num_signif <- sum(results$overall_p < 0.05)
+prec_signif <- num_signif / nrow(results)
+overall_signif <- min(pbinom(num_signif, n_repl, 0.05), 1-pbinom(num_signif, n_repl, 0.05))
+```
+
+```{r eval=FALSE}
+print(num_signif)
+print(prec_signif)
+print(overall_signif)
+```
+
+Since the F-test is conducted at a significance level of 5% and the Null hypothesis is true (All the parameters of the true model is zero), 5% of the fitted models are expected to have p-values below 5%.
+
+Specifically, the number of models with a p-value below 5% is binomially distributed with success probability 5% and number of trials equal to the number of replicates that were performed (`r n_repl`).
+
+Out of `r n_repl` replications, `r num_signif` of the models were found to fit. Considering the binomial distribution mentioned earlier, `r round(100*overall_signif,2)`% of the mass lies to the left of this number of successes.
+
+```{r}
+plot(dbinom(0:(n_repl*0.2), n_repl, 0.05), type = 'l')
+abline(v = num_signif)
+```
+
+## How many of the predictors are found to be significant?
+
+Each predictor in the model has a 5% chance to be significant because that is the significance level and the data is simulated so that the null hypothesis is true. Compare the density of the observed number of significant predictors to the relevant binomial distribution - success probability = 0.05 and number of trials = `r n_var`.
+
+```{r}
+plot(density(results$n_signif_preds))
+lines(y = dbinom(0:max(results$n_signif_preds), n_var, 0.05),
+       x = 0:max(results$n_signif_preds))
+```
+
