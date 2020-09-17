@@ -1,0 +1,101 @@
+# ISLR Chapter 8 - Tree-based Methods
+
+```{r}
+library(tree)
+library(ISLR)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(MASS)
+```
+
+
+## Carseats
+
+```{r}
+str(Carseats)
+Carseats$High <- factor(ifelse(Carseats$Sales <= 8, "No", "Yes"))
+```
+
+```{r}
+c("Sales", "CompPrice", "Income", "Advertising", "Population",
+"Price", "Age", "Education", "ShelveLoc", "Urban", "US", "High"
+)
+
+cs <- model.matrix(High ~ . - 1, data=Carseats)
+data.frame(cs)
+
+cs <- data.frame(cs) %>% pivot_longer(everything())
+
+ggplot(cs, aes(x = value)) +
+  geom_histogram() + 
+  facet_wrap(. ~ name, scales = 'free')
+```
+
+```{r}
+mod <- tree(High ~ . - Sales, Carseats)
+plot(mod)
+summary(mod)
+```
+
+```{r}
+train <- sample(1:nrow(Carseats), floor(nrow(Carseats)/2))
+test <- -train
+
+mod1 <- tree(High ~ . - Sales, Carseats[train,])
+plot(mod1)
+text(mod1)
+text(mod1, pretty = 0)
+summary(mod1)
+
+
+table(Carseats[test, 'High'], predict(mod1, Carseats[test,], type='class'))
+```
+
+
+```{r}
+cv.cs <- cv.tree(mod)
+cv.cs <- cv.tree(mod, FUN = prune.misclass)
+par(mfrow=c(1,2))
+plot(cv.cs$size ~ cv.cs$dev)
+plot(cv.cs$k ~ cv.cs$dev)
+par(mfrow=c(1,1))
+```
+
+```{r}
+plot(mod)
+modp <- prune.misclass(mod1, best = 9)
+plot(modp)
+text(modp, pretty = 0)
+
+table(Carseats[test, 'High'], predict(modp, Carseats[test,], type='class'))
+```
+
+
+## Boston
+
+```{r}
+str(Boston)
+
+train <- sample(1:nrow(Boston), floor(nrow(Boston)/2))
+
+test <- -train
+
+mod <- tree(medv ~ ., data = Boston[train, ])
+plot(mod)
+text(mod, pretty = 0)
+```
+
+```{r}
+cs.bos <- cv.tree(mod)
+print(cs.bos)
+plot(cs.bos)
+```
+
+```{r}
+plot(prune.tree(mod, best = 20))
+```
+
+
+
+

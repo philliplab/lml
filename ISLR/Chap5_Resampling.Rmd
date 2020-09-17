@@ -1,0 +1,33 @@
+# ISLR Chapter 5 - Resampling
+
+```{r}
+library(boot)
+library(ISLR)
+```
+
+Model evaluation using cv.glm
+
+```{r}
+mod <- glm(Purchase ~ ., data = Caravan, family='binomial')
+cost <- function(obs, pred){
+#  print('obs')
+#  print(str(obs))
+#  print('pred')
+#  print(str(pred))
+#  print(sum(obs))
+#  print(sum(ifelse(pred>0.5, 1, 0)))
+  sum(ifelse(pred>0.5, 0, 1) == obs) / length(obs)
+}
+cv.res <- cv.glm(Caravan, mod, cost = cost, K = 5)
+print(cv.res$delta)
+cv.res <- cv.glm(Caravan, mod, K = 5)
+print(cv.res$delta)
+```
+
+
+
+
+
+
+
+

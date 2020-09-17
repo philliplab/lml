@@ -1,0 +1,47 @@
+# ISLR - Chapter 6 - Penalization / Shrinkage
+
+```{r}
+library(glmnet)
+library(ISLR)
+```
+
+```{r}
+str(Hitters)
+x <- model.matrix(Salary ~ . , Hitters)[,-1]
+y <- Hitters$Salary[!is.na(Hitters$Salary)]
+```
+
+```{r}
+lam_grid <- 10^seq(10, -2, length = 100)
+ridge.mod <- glmnet(x, y, alpha = 0, lambda = lam_grid)
+plot(ridge.mod)
+ridge.mod <- glmnet(x, y, alpha = 1, lambda = lam_grid)
+plot(ridge.mod)
+```
+
+
+```{r}
+train_indx <- sample(1:nrow(x), floor(nrow(x)/2))
+test_indx <- -train_indx
+
+lasso.mod <- glmnet(x[train_indx,], y[train_indx], alpha = 1, lambda = lam_grid)
+plot(lasso.mod)
+lasso.pred <- predict(lasso.mod, s=5, newx = x[test_indx,])
+sqrt(sum((lasso.pred - y[test_indx])^2))
+```
+
+
+```{r}
+cv.out <- cv.glmnet(x[train_indx,], y[train_indx], alpha=1)
+plot(cv.out)
+cv.out$lambda.min
+
+
+lasso.pred <- predict(lasso.mod, s=cv.out$lambda.min, newx = x[test_indx,])
+sqrt(sum((lasso.pred - y[test_indx])^2))
+
+coef(lasso.mod)
+```
+
+
+

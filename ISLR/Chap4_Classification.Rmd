@@ -1,0 +1,139 @@
+# ISLR C4 - Classifcation
+
+## Lab
+
+```{r}
+library(ISLR)
+library(ggplot2)
+library(tidyr)
+library(class)
+library(MASS)
+```
+
+Overview of Stockmarket data
+
+```{r}
+names(Smarket)
+
+Smarket %>% pivot_longer(Year:Today)
+
+ggplot(Smarket %>% pivot_longer(Year:Today),
+       aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(. ~ name, scales = 'free')
+
+pairs(Smarket)
+
+round(cor(Smarket[, -9]), 2)
+```
+
+```{r}
+ggplot(Smarket, aes(y = Volume, x = Year, col = Year, group = Year))+
+  geom_boxplot()
+ggplot(Smarket, aes(y = Volume, x = factor(Year)))+
+  geom_boxplot()
+```
+
+```{r}
+names(Smarket)
+mod <- glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume, family = 'binomial', data = Smarket)
+summary(mod)
+```
+
+```{r}
+glm.pred <- predict(mod, type = 'response')
+
+contrasts(Smarket$Direction)
+
+table(Smarket$Direction, ifelse(glm.pred > 0.5, "Up", "Down"))
+```
+
+mini CV
+
+```{r}
+
+mod <- glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume, family = 'binomial', data = subset(Smarket, Year < 2005))
+
+glm.pred <- predict(mod, 
+                    newdata = subset(Smarket, Year >=2005), 
+                    type = 'response')
+
+table(subset(Smarket, Year >= 2005)$Direction, 
+      ifelse(glm.pred > 0.5, "Up", "Down"))
+```
+
+
+
+## Caravan Insurance Data
+
+
+### With KNN
+```{r}
+str(Caravan)
+
+standardized.X = scale(Caravan[,-86])
+
+test <- sample(1:nrow(standardized.X), 1000)
+
+train.X <- standardized.X[-test, ]
+test.X <- standardized.X[test, ]
+
+train.Y <- Caravan$Purchase[-test]
+test.Y <- Caravan$Purchase[test]
+
+knn.pred <- knn(train.X, test.X, train.Y, k=1)
+
+table(knn.pred, test.Y)
+#6/(73+6)
+
+
+knn.pred <- knn(train.X, test.X, train.Y, k=3)
+
+table(knn.pred, test.Y)
+# 4/(4+13)
+
+
+knn.pred <- knn(train.X, test.X, train.Y, k=5)
+
+table(knn.pred, test.Y)
+#1/(6+1)
+
+```
+
+### With logistic
+
+```{r}
+
+mod <- glm(Purchase ~ ., data = Caravan, family = 'binomial', subset = -test)
+
+logr.pred <- predict(mod, Caravan[test,], type = 'response')
+
+table(ifelse(logr.pred>0.4, 'Yes', 'No'), as.character(Caravan$Purchase[test]))
+
+```
+
+### hacky feature selection
+
+```{r}
+dim(Caravan)
+i <- 1
+preds <- NULL
+for (i in 1:85){
+smod <- summary(glm(paste0('Purchase ~ ', names(Caravan)[i]), data = Caravan, family = 'binomial'))
+if (smod$coefficients[2,4] < 0.05){
+  preds <- c(preds, names(Caravan)[i])
+}
+}
+```
+
+```{r}
+mod <- glm(paste0('Purchase ~ ', paste(preds, collapse = ' + ')), data=Caravan[-test,], family = 'binomial')
+summary(mod)
+
+mod.preds <- predict(mod, Caravan[test,], type = 'response')
+
+table(ifelse(mod.preds > 0.1, 'Yes', 'No'), Caravan$Purchase[test])
+```
+
+
+
