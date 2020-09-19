@@ -1,4 +1,29 @@
 from torch.utils.data import Dataset
+from argparse import Namespace
+import torch.optim as optim
+
+base_dir = "/home/phillipl/0_para/3_resources/PyTorch/yelp_review_polarity_csv"
+
+args = Namespace(
+    # Data and path information
+    frequency_cutoff = 25,
+    model_state_file = 'model.pth',
+    review_csv = base_dir + '/reviews_with_splits_lite.csv',
+    save_dir = base_dir + '/model_storage/',
+    vectorizer_file = 'vectorizer.json',
+    # No model hyperparameters
+    # Training hyperparameters
+    batch_size = 128,
+    early_stopping_criteria = 5,
+    learning_rate = 0.001,
+    num_epochs = 100,
+    seed = 1337,
+    # Runtime options...
+    catch_keyboard_interrupt = True,
+    cuda = True,
+    expand_filepaths_to_save_dir = True,
+    reload_from_files = False,
+)
 
 class ReviewDataset(DataSet):
     def __init__(self, review_df, vectorizer):
@@ -246,6 +271,116 @@ class ReviewVectorizer(object):
         """
         return {'review_vocab': self.review_vocab.to_serializable(),
                 'rating_vocab': self.rating_vocab.to_serializable()}
+
+
+def generate_batches(dataset, batch_size, shuffle = True,
+                     drop_last = True, device = 'gpu'):
+    """
+    A generator function which wraps the PyTorch DataLoader. 
+      It will ensure each tensor is on the write device location.
+    """
+    dataloader = DataLoader(dataset = dataset, batch_size = batch_size,
+                            shuffle = shuffle, drop_last = drop_last)
+
+    for data_dict in dataloader:
+        out_data_dict = {}
+        for name, tensor in data_dict.items():
+            out_data_dict[name] = data_dict[name].to(device)
+        yield out_data_dict
+
+class ReviewClassifier(nn.Module):
+    """ a simple perceptron-based classifier"""
+    def __init__(self, num_features):
+        """
+        Args:
+            num_features (int): the size of the input feature vector
+        """
+        super(ReviewClassifier, self).__init__()
+        self.fc1 = nn.Linear(in_features = num_features,
+                             out_features = 1)
+
+    def forward(self, x_in, apply_sigmoid=False):
+        """ The forward pass of the classifier
+
+        Args:
+            x_in (torch.Tensor): an input data tensor
+                x_in.shape should be (batch, num_features) ?? batch_size or batch
+            apply_sigmoid (bool): a flag for the sigmoid activation
+                should be false if usef with the CE losses
+        Returns:
+            the resulting tensor. tensor.shape should be (batch, ). ??batch_size of batch?
+        """
+        y_out = self.fc1(x_in).squeeze()
+        if apply_sigmoid:
+            y_out = F.sigmoid(y_out)
+        return y_out
+
+def make_train_state(args):
+    return {'stop_early' : False,
+            'early_stopping_step' : 0,
+            'early_stopping_best_val' : 1e8,
+            'learning_rate' : args.learning_rate,
+            'epoch_index' : 0,
+            'train_loss' : [],
+            'train_acc' : [],
+            'val_loss' : [],
+            'val_acc' : [],
+            'test_loss' : -1,
+            'test_acc' : -1,
+            'model_filename' : args.model_state_file}
+
+def update_train_state(args, model, train_state):
+    """ Handle the training state updates.
+
+    Components:
+     - Early Stopping: Prevent overfitting.
+     - Model Checkpoint: Model is saved if the model is better.
+
+     :param args: main arguments
+     :param model: model to train
+     :param train_state: a dictionary representing the training state values
+     :returns:
+         a new train state
+    """
+
+    # Save one model at least
+    if train_state['epoch_index'] == 0:
+        torch.save(model.state_dict(), train_state['model_filename'])
+        train_state['stop_early'] = False
+
+    # Save model if performance improved
+    elif train_state['epoch_index'] >= 1:
+        loss_tm1, loss_t = train_state['val_loss'][-2:]
+        # If loss worsened
+        if loss_t >= train_state['early_stoppong_best_val']:
+            # Update step
+            train_state['early_stopping_step'] += 1
+        # Loss decreased
+        else:
+            # Save the best model
+            if loss_t < train_state['early_stopping_best_val']:
+                torch.save(model.state_dict(), train_state['model_filename'])
+
+            # Reset early stopping step
+            train_state['early_stopping_step'] = 0
+
+        # Stop early ?
+        train_state['stop_early'] = \
+            train_state['early_stopping_step'] >= args.early_stopping_criteria
+
+    return train_state
+
+def compute_accuracy(y_pred, y_target):
+    y_target = y_target.cpu()
+    y_pred_indices = (torch.sigmoid(y_pred)>0.5).cpu().long()#.max(dim=1)[1]
+    n_correct = torch.eq(y_pred_indices, y_target).sum().item()
+    return n_correct / len(y_pred_indices) * 100
+
+
+
+
+
+
 
 
 
