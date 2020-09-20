@@ -88,25 +88,20 @@ targets = np.array([[56, 70], [81, 101], [119, 133],
                     [119, 133], [22, 37], [103, 119]], 
                    dtype='float32')
 
+n_features = 3
+inputs = np.array(np.random.normal(0, 1, (1000, n_features)), dtype = 'float32')
+err = np.array(np.random.normal(0, 1, (1000, 1)), dtype = 'float32')
+tw = np.array(np.random.random((n_features, 1)), dtype = 'float32')*n_features - 5
+targets = np.array(np.matmul(inputs, tw) + err, dtype = 'float32')
+
 inputs = torch.from_numpy(inputs)
 targets = torch.from_numpy(targets)
 
 # Define dataset
 train_ds = TensorDataset(inputs, targets)
-train_ds[0:3]
-
 
 batch_size = 5
 train_dl = DataLoader(train_ds, batch_size, shuffle = True)
-
-i = 0
-for xb, yb in train_dl:
-    print(xb)
-    print(yb)
-    print(i)
-    i += 1
-    if i == 10:
-        break
 
 # 1:13:52
 model = nn.Linear(3, 2)
