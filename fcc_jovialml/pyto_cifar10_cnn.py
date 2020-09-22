@@ -4,6 +4,8 @@ import torchvision
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch.nn as nn
+import torch.nn.functional as F
 
 from torchvision.datasets.utils import download_url
 from torchvision.datasets import ImageFolder
@@ -73,11 +75,63 @@ def show_batch(dl):
 #show_batch(train_dl)
 #show_batch(valid_dl)
 
+model = nn.Sequential(
+        nn.Conv2d(3, 16, kernel_size = 3, stride = 1, padding = 1),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2), # output: bs x 16 x 16 x 16
 
+        nn.Conv2d(16, 16, kernel_size = 3, stride = 1, padding = 1),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2), # output: bs x 16 x 8 x 8
 
+        nn.Conv2d(16, 16, kernel_size = 3, stride = 1, padding = 1),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2), # output: bs x 16 x 4 x 4
 
+        nn.Conv2d(16, 16, kernel_size = 3, stride = 1, padding = 1),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2), # output: bs x 16 x 2 x 2
 
+        nn.Conv2d(16, 16, kernel_size = 3, stride = 1, padding = 1),
+        nn.ReLU(),
+        nn.MaxPool2d(2, 2), # output: bs x 16 x 1 x 1
 
+        nn.Flatten(), # output bs x 16
+        nn.Linear(16, 10) # output bs x 10
+
+)
+
+for images, labels in train_dl:
+    print(images.shape)
+    out = model(images)
+    print(out.shape)
+    break
+
+def get_default_device():
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    else:
+        return torch.device('cpu')
+
+def to_device(data, device):
+    if isinstance(data, (list, tuple)):
+        return [to_device(x, device) for x in data]
+    return data.to(device, non_bloacking = True)
+
+class DeviceDataLoader():
+    def __init__(self, dl, device):
+        self.dl = dl
+        self.device = device
+
+    def __iter__(self):
+        for b in self.dl:
+            yield to_device(b, self.device)
+
+    def __len__(self):
+        return len(self.dl)
+
+device = get_default_device()
+device
 
 
 
