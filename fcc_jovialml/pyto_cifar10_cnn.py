@@ -116,7 +116,7 @@ def get_default_device():
 def to_device(data, device):
     if isinstance(data, (list, tuple)):
         return [to_device(x, device) for x in data]
-    return data.to(device, non_bloacking = True)
+    return data.to(device, non_blocking = True)
 
 class DeviceDataLoader():
     def __init__(self, dl, device):
@@ -132,6 +132,70 @@ class DeviceDataLoader():
 
 device = get_default_device()
 device
+
+train_dl = DeviceDataLoader(train_dl, device)
+valid_dl = DeviceDataLoader(valid_dl, device)
+to_device(model, device)
+
+def loss_batch(model, loss_func, xb, yb, opt = None, metric = None):
+    preds = model(xb)
+    loss = loss_func(preds, yb)
+
+    if opt is not None:
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+
+    metric_result = None
+    if metric is not None:
+        metric_result = metric(preds, yb)
+
+    return loss.item(), len(xb), metric_result
+
+def evaluate(model, loss_func, valid_dl, metric = None):
+    with torch.no_grad():
+        result = [loss_batch(model, loss_func, xb, yb, metric = metric) for xb, yb in valid_dl]
+        losses, totals, metrics = zip(*result)
+
+        total = np.sum(totals)
+        avg_loss = np.sum(np.multiply(losses, totals)) / total
+        avg_metric = None
+        if metric is not None:
+            avg_metric = np.sum(np.multiply(metrics, totals)) / total
+        
+    return avg_loss, total, avg_metric
+
+def fit(epochs, model, loss_fn, train_dl, valid_dl,
+        opt_fn = None, lr = None, metric = None):
+    train_losses, val_losses, val_metrics = [], [], []
+
+    if opt_fn is None: opt_fn = torch.optim.SGD
+    opt = opt_fn(model.parameters, lr = 0.001 if lr is None else lr)
+
+    for epoch in range(epochs):
+        model.train()
+        for xb, yb in train_dl:
+            train_loss, _, _ = loss_batch(model, loss_fn, xb, yb, opt)
+
+        model.eval()
+        result = evaluate(model, loss_fn, valid_dl, metric)
+        val_loss, total, val_metric = result
+
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        val_metrics.append(val_metric)
+
+        print([epoch, epochs, train_loss, val_loss, val_metric])
+    return train_losses, val_losses, val_metrics
+
+def accuracy(outputs, targets):
+    _, preds = torch.max(outputs, dim = 1)
+    return np.sum(preds == targets).item() / len(preds)
+
+val_loss, _, val_metric = evaluate(model, F.cross_entropy, valid_dl, accuracy)
+
+
+
 
 
 
