@@ -24,7 +24,8 @@ ipython.magic('matplotlib')
 
 base_dir = '/home/phillipl/0_para/3_resources/PyTorch'
 val_pct = 0.2
-batch_size = 100
+batch_size = 128*4*16
+train_losses, val_losses, val_metrics = [], [], []
 
 # Get data (and check)
 # dataset_url = 'https://files.fast.ai/data/examples/cifar10.tgz'
@@ -34,12 +35,6 @@ batch_size = 100
 # glob.glob(base_dir + '/cifar10/train/truck/*')
 
 dataset = ImageFolder(base_dir + '/cifar10/train', transform = ToTensor())
-
-dataset[19000][0].shape
-
-plt.imshow(dataset[19000][0].numpy())
-
-dataset[19000][0].permute(1, 2, 0).shape
 
 def show_example(img, label):
     print(f"Label: {dataset.classes[label]} ({label})")
@@ -65,6 +60,10 @@ valid_dl = DataLoader(dataset = dataset,
                       batch_size = batch_size,
                       sampler = valid_sampler)
 
+for xb, yb in train_dl:
+    print(xb.size())
+    break
+
 def show_batch(dl):
     for images, labels in dl:
         fig, ax = plt.subplots(figsize = (10, 10))
@@ -72,8 +71,8 @@ def show_batch(dl):
         ax.imshow(make_grid(images, 10).permute(1, 2, 0))
         break
 
-#show_batch(train_dl)
-#show_batch(valid_dl)
+show_batch(train_dl)
+show_batch(valid_dl)
 
 model = nn.Sequential(
         nn.Conv2d(3, 16, kernel_size = 3, stride = 1, padding = 1),
@@ -170,7 +169,7 @@ def fit(epochs, model, loss_fn, train_dl, valid_dl,
     train_losses, val_losses, val_metrics = [], [], []
 
     if opt_fn is None: opt_fn = torch.optim.SGD
-    opt = opt_fn(model.parameters, lr = 0.001 if lr is None else lr)
+    opt = opt_fn(model.parameters(), lr = 0.001 if lr is None else lr)
 
     for epoch in range(epochs):
         model.train()
@@ -190,13 +189,27 @@ def fit(epochs, model, loss_fn, train_dl, valid_dl,
 
 def accuracy(outputs, targets):
     _, preds = torch.max(outputs, dim = 1)
-    return np.sum(preds == targets).item() / len(preds)
+    return torch.sum(preds == targets).item() / len(preds)
 
 val_loss, _, val_metric = evaluate(model, F.cross_entropy, valid_dl, accuracy)
 
+num_epochs = 10
+opt_fn = torch.optim.Adam
+lr = 0.005
 
+history = fit(num_epochs, model, F.cross_entropy,
+              train_dl, valid_dl, opt_fn, lr, accuracy)
+train_losses += history[0] 
+val_losses += history[1]
+val_metrics += history[2]
 
+def predict_image(img, model):
+    xb = img.unsqueeze(0)
+    yb = model(xb.to(device))
+    _, preds = torch.max(yb, dim = 1)
+    return dataset.classes[preds[0].item()]
 
-
-
+test_dataset = ImageFolder(base_dir + '/cifar10/test', transform = ToTensor())
+test_dl = DeviceDataLoader(DataLoader(test_dataset, batch_size = batch_size), device)
+test_loss, _, test_acc = evaluate(model, F.cross_entropy, test_dl, accuracy)
 
